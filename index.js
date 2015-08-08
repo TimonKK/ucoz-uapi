@@ -4,6 +4,30 @@ var crypto = require('crypto');
 var curl = require('curlrequest');
 var request = require('request');
 
+
+
+/*
+How to use:
+ Consumer key – dfg98dfg8df8g9d98gd98g8dfg
+ Consumer secret – .dA7xzR7fDlOrltTc7tZHVI95oMsEa
+ OAuth token – BRKkNkf3ZbijzdRC6F9bPhCeYVW7FTtqNRbwsDbq
+ OAuth token secret – qSSUWTG7FbryN3ZXpSf0fbZeEVdDkLXYrX2jGrsl
+
+var Uapi = require('ucoz-uapi');
+var upai = new Uapi({
+    consumer_key       : 'dfg98dfg8df8g9d98gd98g8dfg',
+    consumer_secret    : '.dA7xzR7fDlOrltTc7tZHVI95oMsEa',
+    oauth_token        : 'BRKkNkf3ZbijzdRC6F9bPhCeYVW7FTtqNRbwsDbq',
+    oauth_token_secret : 'qSSUWTG7FbryN3ZXpSf0fbZeEVdDkLXYrX2jGrsl',
+    url                : 'test-ucoz.ucoz.net'
+});
+
+upai.exec('blog', 'get', null, function(err, data) {
+
+});
+*/
+
+
 function urlencode(str) {
 	//       discuss at: http://phpjs.org/functions/urlencode/
 	//      original by: Philip Peterson
@@ -43,6 +67,15 @@ function urlencode(str) {
 		replace(/\)/g, '%29')
 		.replace(/\*/g, '%2A')
 		.replace(/%20/g, '+');
+}
+
+function md5(str) {
+    return crypto.createHash('md5').update(str).digest("hex");
+}
+
+
+function getSha1(str, key) {
+    return crypto['createHmac']('sha1', key).update(str).digest("binary");
 }
 
 
@@ -128,44 +161,37 @@ function UCozUAPI(params) {
 		return new Error('first param is empty')
 	}
 	
-	if ( ! params.consumer_key      ) throw new Error('"consumer_key" is not defined');
-	if ( ! params.consumer_secret   ) throw new Error('"consumer_secret" is not defined');
-	if ( ! params.oauth_token       ) throw new Error('"oauth_token" is not defined');
-	if ( ! params.oauth_token_secret) throw new Error('"oauth_token_secret" is not defined');
-	if ( ! params.url               ) throw new Error('"url" is not defined');
-	
-	if ( ! params.module) {
-		params.module = '';
-	}
-	
-	params.url = params.url.replace('http:\/\/', '');
-	params.url = params.url.replace(/\/$/, '');
-	
-	//setup для работы с uApi
-	var oauth_nonce = U.lib.md5(new Date().getTime() + '' + mt_rand()); //не изменять
-	var timestamp =  time();//не изменять
-	var sig_method = 'HMAC-SHA1'; //не изменять
-	var oauth_version = '1.0'; //не изменять
-	var consumer_key = params.consumer_key;
-	var consumer_secret = params.consumer_secret;
-	var oauth_token = params.oauth_token;
-	var oauth_token_secret = params.oauth_token_secret;
-	var main_url = params.url; //нужно указать с http:// и с uapi. Например: http://yourwebsite.ucoz.ru/uapi
-	
-	var parametrs = _.extend(
-		{
-			'oauth_consumer_key'     : consumer_key, //обязательный параметр
-			'oauth_nonce'            : oauth_nonce, //обязательный параметр
-			'oauth_signature_method' : sig_method, //обязательный параметр
-			'oauth_timestamp'        : '' + timestamp, //обязательный параметр
-			'oauth_token'            : oauth_token, //обязательный параметр
-			'oauth_version'          : oauth_version, //обязательный параметр
+	['consumerKey', 'consumerSecret', 'oauthToken', 'oauthTokenSecret', 'url'].forEach(function(key) {
+		if ( ! params[key]) {
+			throw new Error('"' + key + '" is not defined');
 		}
-	);
+		
+		me[key] = params[key];
+	});
 	
+	me.url = me.url.replace('http:\/\/', '');
+	me.url = me.url.replace(/\/$/, '');
 	
 	
 	me.exec = function(moduleName, method, addParams, cb) {
+		
+		//setup для работы с uApi
+		var oauth_nonce   = md5(new Date().getTime() + '' + mt_rand()),
+			timestamp     = time(),
+			sig_method    = 'HMAC-SHA1', 
+			oauth_version = '1.0';
+		
+		var parametrs = _.extend(
+			{
+				'oauth_consumer_key'     : me.consumerKey, //обязательный параметр
+				'oauth_nonce'            : oauth_nonce, //обязательный параметр
+				'oauth_signature_method' : sig_method, //обязательный параметр
+				'oauth_timestamp'        : '' + timestamp, //обязательный параметр
+				'oauth_token'            : me.oauthToken, //обязательный параметр
+				'oauth_version'          : oauth_version, //обязательный параметр
+			}
+		);
+		
 		try {
 			if ( ! moduleName) {
 				throw new Error('exec: moduleName not defined');
@@ -217,11 +243,11 @@ function UCozUAPI(params) {
 			
 			basestring = method + '&' + urlencode(request_url) + '&' + urlencode(basestring);
 			
-			var hash_key = consumer_secret + '&' + oauth_token_secret;
+			var hash_key = me.consumerSecret + '&' + me.oauthTokenSecret;
 			
 			var oauth_signature = urlencode(
 				base64_encode(
-					U.lib.getSha1(
+					getSha1(
 						basestring,
 						hash_key
 					)
@@ -238,23 +264,18 @@ function UCozUAPI(params) {
 		
 		
 		if (method == 'GET') {
-			var options = {
-				url     : url_for,
-				include : true
-			};
-			curl.request(options, function (err, parts) {
+			request(url_for, function(err, result, body) {
 				if (err) return cb(err);
 				
 				var json = null;
-				
-				parts = parts.split('\r\n');
-				var data = parts.pop()
-					, head = parts.pop();
-				
 				try {
-					json = JSON.parse(data);
-				} catch (e) {
+					json = JSON.parse(body);
+				} catch(e) {
 					return cb(e);
+				}
+				
+				if (json.error) {
+					return cb(json.error);
 				}
 				
 				cb(null, json)
