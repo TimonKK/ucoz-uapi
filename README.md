@@ -1,16 +1,13 @@
 # ucoz-uapi
-Модуль для работы с uCoz uAPI для Node.js
+Module for use with uCoz uAPI for Node.js.
 
 How to use:
-1. Go to http://api.ucoz.net/ru/join.
-2. Get the following keys:
- Consumer key
- Consumer secret
- OAuth token
- OAuth token secret
+1.  Go to http://api.ucoz.net/ru/
+2.  Get the following keys: Consumer key, Consumer secret, OAuth token, OAuth token secret
 4. Make sure the checkbox "Enable uAPI module" in the module settings (in the Control Panel of the site).
 3. Use:
 
+```
 var UAPI = require('ucoz-uapi');
 var uAPI = new UAPI({
     consumerKey       : 'dfg98dfg8df8g9d98gd98g8dfg',
@@ -25,3 +22,4 @@ uAPI.filesDirectory().get(
         console.log(err, data);
     }
 )
+```
