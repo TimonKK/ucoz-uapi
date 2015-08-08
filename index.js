@@ -154,159 +154,233 @@ function time() {
 var moduleNameMap = {
 };
 
+var sigMethod    = 'HMAC-SHA1';
+var oauthVersion = '1.0';
+
+
+function Query(context, moduleName) {
+	var me = this;
+	
+	if ( ! context) {
+		throw new Error('Query: "context" not defined');
+	}
+	
+	if ( ! moduleName) {
+		throw new Error('Query: "moduleName" not defined');
+	}
+	
+	me.context = context;
+	me.moduleName = moduleName;
+}
+
+Query.prototype.get = function(cb) {
+	this.exec(this.moduleName, 'get', null, cb);
+};
+
+Query.prototype.post = function(params, cb) {
+	this.exec(this.moduleName, 'post', params, cb);
+};
+
+
+Query.prototype.exec = function(moduleName, method, addParams, cb) {
+	var me = this;
+	
+	//setup для работы с uApi
+	var oauth_nonce = md5(new Date().getTime() + '' + mt_rand()),
+		timestamp   = time();
+	
+	var parametrs = _.extend(
+		{
+			'oauth_consumer_key'     : me.context.consumerKey,
+			'oauth_nonce'            : oauth_nonce,
+			'oauth_signature_method' : sigMethod,
+			'oauth_timestamp'        : '' + timestamp,
+			'oauth_token'            : me.context.oauthToken,
+			'oauth_version'          : oauthVersion
+		}
+	);
+	
+	try {
+		if ( ! moduleName) {
+			throw new Error('exec: moduleName not defined');
+			return ;
+		}
+		if ( ! method    ) {
+			throw new Error('exec: method not defined');
+			return ;
+		}
+		if ( ! cb        ) {
+			throw new Error('exec: cb not defined');
+			return ;
+		}
+		
+		if (addParams) {
+			Object.keys(addParams).forEach(function(key) {
+				parametrs[key] = addParams[key];
+			});
+		}
+		
+		parametrs = Object.keys(parametrs)
+			.sort(function(a, b) {
+				return a.localeCompare(b);
+			})
+			.reduce(function(obj, key) {
+				obj[key] = parametrs[key];
+				return obj;
+			}, {});
+		
+		if (moduleNameMap[moduleName]) {
+			moduleName = moduleNameMap[moduleName];
+		}
+		
+		//начинается формирование подписи для правильного запроса
+		var request_url = 'http://' + me.context.url + '/uapi' + moduleName.trim().toLowerCase();
+		method = method.toUpperCase();
+		var parametrs2 = parametrs;
+		
+		parametrs = Object.keys(parametrs).reduce(function (obj, key) {
+			
+			// Это не я придумал, если не убирать эти символы, сигнатура не сходится
+			obj[key] = parametrs[key].replace('@', '').replace('!', '');
+			
+			return obj;
+		}, {});
+		
+		
+		var basestring = querystring.stringify(parametrs).replace('+', '%20');
+		
+		basestring = method + '&' + urlencode(request_url) + '&' + urlencode(basestring);
+		
+		var hash_key = me.context.consumerSecret + '&' + me.context.oauthTokenSecret;
+		
+		var oauth_signature = urlencode(
+			base64_encode(
+				getSha1(
+					basestring,
+					hash_key
+				)
+			).trim()
+		);
+		
+		var parametrs_forurl = querystring.stringify(parametrs);
+		var url = request_url + '?oauth_signature=' + oauth_signature;
+		var url_for = request_url + '?' + parametrs_forurl + '&oauth_signature=' + oauth_signature;
+		
+	} catch(e) {
+		console.log('e', e.stack);
+	}
+	
+	
+	if (method == 'GET') {
+		request(url_for, function(err, result, body) {
+			if (err) return cb(err);
+			
+			var json = null;
+			try {
+				json = JSON.parse(body);
+			} catch(e) {
+				return cb(e);
+			}
+			
+			if (json.error) return cb(json.error);
+			
+			cb(null, json)
+		});
+	} else if (method == 'POST') {
+		request.post(url_for, {form: parametrs2}, function(err, result, body) {
+			if (err) return cb(err);
+			
+			var json = null;
+			try {
+				json = JSON.parse(body);
+			} catch(e) {
+				return cb(e);
+			}
+			
+			if (json.error) {
+				return cb(json.error);
+			}
+			
+			cb(null, json)
+		});
+	} else {
+		return cb(new Error('method "' + method + '" not implemented'));
+	}
+	
+	
+	return me;
+};
+
+
 function UCozUAPI(params) {
 	var me = this;
 	
-	if ( ! params) {
-		return new Error('first param is empty')
-	}
+	// Обработка параметров
+	if ( ! params) throw new Error('first param is empty');
 	
 	['consumerKey', 'consumerSecret', 'oauthToken', 'oauthTokenSecret', 'url'].forEach(function(key) {
-		if ( ! params[key]) {
-			throw new Error('"' + key + '" is not defined');
-		}
+		if ( ! params[key]) throw new Error('"' + key + '" is not defined');
 		
 		me[key] = params[key];
 	});
 	
-	me.url = me.url.replace('http:\/\/', '');
-	me.url = me.url.replace(/\/$/, '');
+	me.url = me.url
+		.replace('http:\/\/', '')
+		.replace(/\/$/, '');
 	
+	//me.moduleName = '';
 	
-	me.exec = function(moduleName, method, addParams, cb) {
-		
-		//setup для работы с uApi
-		var oauth_nonce   = md5(new Date().getTime() + '' + mt_rand()),
-			timestamp     = time(),
-			sig_method    = 'HMAC-SHA1', 
-			oauth_version = '1.0';
-		
-		var parametrs = _.extend(
-			{
-				'oauth_consumer_key'     : me.consumerKey, //обязательный параметр
-				'oauth_nonce'            : oauth_nonce, //обязательный параметр
-				'oauth_signature_method' : sig_method, //обязательный параметр
-				'oauth_timestamp'        : '' + timestamp, //обязательный параметр
-				'oauth_token'            : me.oauthToken, //обязательный параметр
-				'oauth_version'          : oauth_version, //обязательный параметр
-			}
-		);
-		
-		try {
-			if ( ! moduleName) {
-				throw new Error('exec: moduleName not defined');
-				return ;
-			}
-			if ( ! method    ) {
-				throw new Error('exec: method not defined');
-				return ;
-			}
-			if ( ! cb        ) {
-				throw new Error('exec: cb not defined');
-				return ;
-			}
-			
-			if (addParams) {
-				Object.keys(addParams).forEach(function(key) {
-					parametrs[key] = addParams[key];
-				});
-			}
-			
-			parametrs = Object.keys(parametrs)
-				.sort(function(a, b) {
-					return a.localeCompare(b);
-				})
-				.reduce(function(obj, key) {
-					obj[key] = parametrs[key];
-					return obj;
-				}, {});
-			
-			if (moduleNameMap[moduleName]) {
-				moduleName = moduleNameMap[moduleName];
-			}
-			
-			//начинается формирование подписи для правильного запроса
-			var request_url = 'http://' + params.url + '/uapi' + moduleName.trim().toLowerCase();
-			method = method.toUpperCase();
-			var parametrs2 = parametrs;
-			
-			parametrs = Object.keys(parametrs).reduce(function (obj, key) {
-				
-				// Это не я придумал, если не убирать эти символы, сигнатура не сходится
-				obj[key] = parametrs[key].replace('@', '').replace('!', '');
-				
-				return obj;
-			}, {});
-			
-			
-			var basestring = querystring.stringify(parametrs).replace('+', '%20');
-			
-			basestring = method + '&' + urlencode(request_url) + '&' + urlencode(basestring);
-			
-			var hash_key = me.consumerSecret + '&' + me.oauthTokenSecret;
-			
-			var oauth_signature = urlencode(
-				base64_encode(
-					getSha1(
-						basestring,
-						hash_key
-					)
-				).trim()
-			);
-			
-			var parametrs_forurl = querystring.stringify(parametrs);
-			var url = request_url + '?oauth_signature=' + oauth_signature;
-			var url_for = request_url + '?' + parametrs_forurl + '&oauth_signature=' + oauth_signature;
-			
-		} catch(e) {
-			console.log('e', e);
-		}
-		
-		
-		if (method == 'GET') {
-			request(url_for, function(err, result, body) {
-				if (err) return cb(err);
-				
-				var json = null;
-				try {
-					json = JSON.parse(body);
-				} catch(e) {
-					return cb(e);
-				}
-				
-				if (json.error) {
-					return cb(json.error);
-				}
-				
-				cb(null, json)
-			});
-		} else if (method == 'POST') {
-			request.post(url_for, {form: parametrs2}, function(err, result, body) {
-				if (err) return cb(err);
-				
-				var json = null;
-				try {
-					json = JSON.parse(body);
-				} catch(e) {
-					return cb(e);
-				}
-				
-				if (json.error) {
-					return cb(json.error);
-				}
-				
-				cb(null, json)
-			});
-		} else {
-			return cb(new Error('method "' + method + '" not implemented'));
-		}
-		
-		
-		return me;
-	}
+	// Список методов, возвращающий объект запроса к определенному модулю.
+	// У каждого модуля набор методов свой, если в API сервиса его нет, вернет ошибку вида
+	// {msg: 'Not supported method', code: 'NOT_SUPPORTED_METHOD'}
+	// Записал такой копипастой, чтобы было видно, какие модули есть и что внутри вообще творится.
+	me.blog = function() {
+		return new Query(me, '/blog');
+	};
 	
-	//формирование setup закончено
-	return me;
+	me.search = function() {
+		return new Query(me, '/search');
+	};
+	
+	me.guestBook = function() {
+		return new Query(me, '/gb');
+	};
+	
+	me.board = function() {
+		return new Query(me, '/board');
+	};
+	
+	me.sitesDirectory = function() {
+		return new Query(me, '/dir');
+	};
+	
+	me.articlesDirectory = function() {
+		return new Query(me, '/publ');
+	};
+	
+	me.filesDirectory = function() {
+		return new Query(me, '/load');
+	};
+	
+	me.miniChat = function() {
+		return new Query(me, '/mchat');
+	};
+	
+	me.news = function() {
+		return new Query(me, '/news');
+	};
+	
+	me.onlineGames = function() {
+		return new Query(me, '/stuff');
+	};
+	
+	me.polls = function() {
+		return new Query(me, '/polls');
+	};
+	
+	me.users = function() {
+		return new Query(me, '/users');
+	};
 }
 
 module.exports = UCozUAPI;
