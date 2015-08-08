@@ -1,8 +1,7 @@
-var _ = require('lodash');
-var querystring = require('querystring');
-var crypto = require('crypto');
-var curl = require('curlrequest');
-var request = require('request');
+var _           = require('lodash'),
+	querystring = require('querystring'),
+	crypto      = require('crypto'),
+	request     = require('request');
 
 
 
