@@ -1,7 +1,7 @@
 {
   "name": "ucoz-uapi",
-  "version": "0.8.2",
-  "description": "Node JS модуль для uAPI (Beta)",
+  "version": "1.0.0",
+  "description": "Node JS модуль для uAPI",
   "main": "index.js",
   "directories": {
     "test": "test"
