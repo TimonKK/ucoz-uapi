@@ -7,8 +7,21 @@ var uAPI = new UAPI({
     url               : 'http://test-ucoz.ucoz.net/'
 });
 
-uAPI.filesDirectory().get(
+
+
+uAPI.blog().get(
     function(err, data) {
-        console.log('new get', err, data);
+        console.log('new delete', err, data);
     }
-)
+);
+
+
+uAPI.blog().delete(
+    {
+        'id': '37'
+    },
+    function(err, data) {
+        console.log('new delete', err, data);
+    }
+);
+

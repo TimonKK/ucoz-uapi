@@ -155,6 +155,23 @@ function time() {
 	return Math.floor(new Date().getTime() / 1000);
 }
 
+function prepareResponce(err, body, cb) {
+	if (err) return cb(err);
+	
+	var json = null;
+	try {
+		json = JSON.parse(body);
+	} catch(e) {
+		return cb(e);
+	}
+	
+	if (json.error) {
+		return cb(json.error);
+	}
+	
+	cb(null, json)
+};
+
 var moduleNameMap = {
 };
 
@@ -177,18 +194,30 @@ function Query(context, moduleName) {
 	me.moduleName = moduleName;
 }
 
+
 Query.prototype.get = function(cb) {
 	this.exec(this.moduleName, 'get', null, cb);
 };
+
 
 Query.prototype.post = function(params, cb) {
 	this.exec(this.moduleName, 'post', params, cb);
 };
 
 
+Query.prototype.put = function(params, cb) {
+	this.exec(this.moduleName, 'put', params, cb);
+};
+
+
+Query.prototype.delete = function(params, cb) {
+	this.exec(this.moduleName + '/posts', 'delete', params, cb);
+};
+
+
 Query.prototype.exec = function(moduleName, method, addParams, cb) {
 	var me = this;
-	
+	console.log('moduleName', moduleName);
 	//setup для работы с uApi
 	var oauth_nonce = md5(new Date().getTime() + '' + mt_rand()),
 		timestamp   = time();
@@ -277,35 +306,19 @@ Query.prototype.exec = function(moduleName, method, addParams, cb) {
 	
 	if (method == 'GET') {
 		request(url_for, function(err, result, body) {
-			if (err) return cb(err);
-			
-			var json = null;
-			try {
-				json = JSON.parse(body);
-			} catch(e) {
-				return cb(e);
-			}
-			
-			if (json.error) return cb(json.error);
-			
-			cb(null, json)
+			prepareResponce(err, body, cb);
 		});
 	} else if (method == 'POST') {
 		request.post(url_for, {form: parametrs2}, function(err, result, body) {
-			if (err) return cb(err);
-			
-			var json = null;
-			try {
-				json = JSON.parse(body);
-			} catch(e) {
-				return cb(e);
-			}
-			
-			if (json.error) {
-				return cb(json.error);
-			}
-			
-			cb(null, json)
+			prepareResponce(err, body, cb);
+		});
+	} else if (method == 'PUT') {
+		request({ url: url_for, method: 'PUT', form: parametrs2}, function(err, result, body) {
+			prepareResponce(err, body, cb);
+		});
+	} else if (method == 'DELETE') {
+		request({ url: url, method: 'DELETE', form: parametrs2}, function(err, result, body) {
+			prepareResponce(err, body, cb);
 		});
 	} else {
 		return cb(new Error('method "' + method + '" not implemented'));
