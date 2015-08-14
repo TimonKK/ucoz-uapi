@@ -152,7 +152,71 @@ function mt_rand(min, max) {
 }
 
 function time() {
-	return Math.floor(new Date().getTime() / 1000);
+	//return Math.floor(new Date().getTime() / 1000);
+	return Math.floor(1439501285039 / 1000);
+}
+
+function http_build_query(formdata, numeric_prefix, arg_separator) {
+	//  discuss at: http://phpjs.org/functions/http_build_query/
+	// original by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+	// improved by: Legaev Andrey
+	// improved by: Michael White (http://getsprink.com)
+	// improved by: Kevin van Zonneveld (http://kevin.vanzonneveld.net)
+	// improved by: Brett Zamir (http://brett-zamir.me)
+	//  revised by: stag019
+	//    input by: Dreamer
+	// bugfixed by: Brett Zamir (http://brett-zamir.me)
+	// bugfixed by: MIO_KODUKI (http://mio-koduki.blogspot.com/)
+	//        note: If the value is null, key and value are skipped in the http_build_query of PHP while in phpjs they are not.
+	//  depends on: urlencode
+	//   example 1: http_build_query({foo: 'bar', php: 'hypertext processor', baz: 'boom', cow: 'milk'}, '', '&amp;');
+	//   returns 1: 'foo=bar&amp;php=hypertext+processor&amp;baz=boom&amp;cow=milk'
+	//   example 2: http_build_query({'php': 'hypertext processor', 0: 'foo', 1: 'bar', 2: 'baz', 3: 'boom', 'cow': 'milk'}, 'myvar_');
+	//   returns 2: 'myvar_0=foo&myvar_1=bar&myvar_2=baz&myvar_3=boom&php=hypertext+processor&cow=milk'
+	
+	var value, key, tmp = [],
+		that = this;
+	
+	var _http_build_query_helper = function(key, val, arg_separator) {
+		var k, tmp = [];
+		if (val === true) {
+			val = '1';
+		} else if (val === false) {
+			val = '0';
+		}
+		if (val != null) {
+			if (typeof val === 'object') {
+				for (k in val) {
+					if (val[k] != null) {
+						tmp.push(_http_build_query_helper(key + '[' + k + ']', val[k], arg_separator));
+					}
+				}
+				return tmp.join(arg_separator);
+			} else if (typeof val !== 'function') {
+				return urlencode(key) + '=' + urlencode(val);
+			} else {
+				throw new Error('There was an error processing for http_build_query().');
+			}
+		} else {
+			return '';
+		}
+	};
+	
+	if (!arg_separator) {
+		arg_separator = '&';
+	}
+	for (key in formdata) {
+		value = formdata[key];
+		if (numeric_prefix && !isNaN(key)) {
+			key = String(numeric_prefix) + key;
+		}
+		var query = _http_build_query_helper(key, value, arg_separator);
+		if (query !== '') {
+			tmp.push(query);
+		}
+	}
+	
+	return tmp.join(arg_separator);
 }
 
 function prepareResponce(err, body, cb) {
@@ -217,11 +281,16 @@ Query.prototype.delete = function(params, cb) {
 
 Query.prototype.exec = function(moduleName, method, addParams, cb) {
 	var me = this;
-	console.log('moduleName', moduleName);
+	//console.log('moduleName', moduleName);
 	//setup для работы с uApi
-	var oauth_nonce = md5(new Date().getTime() + '' + mt_rand()),
+	//var oauth_nonce = md5(new Date().getTime() + '' + mt_rand()),
+	var mt_rand_val = 560982359;//mt_rand(),
+		oauth_nonce = md5(1439501285039 + '' + mt_rand_val),
+		//oauth_nonce = md5(new Date().getTime() + '' + mt_rand_val),
 		timestamp   = time();
-	
+	//console.log('mt_rand_val', mt_rand_val);
+	//console.log('oauth_nonce', oauth_nonce);
+	//console.log('timestamp', timestamp);
 	var parametrs = _.extend(
 		{
 			'oauth_consumer_key'     : me.context.consumerKey,
@@ -274,14 +343,24 @@ Query.prototype.exec = function(moduleName, method, addParams, cb) {
 		parametrs = Object.keys(parametrs).reduce(function (obj, key) {
 			
 			// Это не я придумал, если не убирать эти символы, сигнатура не сходится
-			obj[key] = parametrs[key].replace('@', '').replace('!', '');
+			//obj[key] = parametrs[key].replace('@', '').replace('!', '');
+			//obj[key] = parametrs[key].replace('@', '');
+			obj[key] = parametrs[key].replace('@', '');
 			
+			//if (key == 'title') {
+			//	console.log('key', key, parametrs[key], escape(parametrs[key]).replace('@', ''));
+			//}
 			return obj;
 		}, {});
+		//console.log('request_url', request_url);
+		//console.log('parametrs', parametrs);
 		
+		//var basestring = querystring.stringify(parametrs).replace('+', '%20');
 		
-		var basestring = querystring.stringify(parametrs).replace('+', '%20');
-		
+		console.log('============');
+		console.log(http_build_query(parametrs));
+		console.log('============');
+		var basestring = http_build_query(parametrs);
 		basestring = method + '&' + urlencode(request_url) + '&' + urlencode(basestring);
 		
 		var hash_key = me.context.consumerSecret + '&' + me.context.oauthTokenSecret;
@@ -294,8 +373,22 @@ Query.prototype.exec = function(moduleName, method, addParams, cb) {
 				)
 			).trim()
 		);
+		console.log('basestring', basestring);
+		console.log('hash_key', hash_key);
+		console.log('getSha1', getSha1(
+			basestring,
+			hash_key
+		));
+		console.log('base64_encode', base64_encode(
+			getSha1(
+				basestring,
+				hash_key
+			)
+		).trim());
+		console.log('oauth_signature', oauth_signature);
 		
-		var parametrs_forurl = querystring.stringify(parametrs);
+		//var parametrs_forurl = querystring.stringify(parametrs);
+		var parametrs_forurl = http_build_query(parametrs);
 		var url = request_url + '?oauth_signature=' + oauth_signature;
 		var url_for = request_url + '?' + parametrs_forurl + '&oauth_signature=' + oauth_signature;
 		

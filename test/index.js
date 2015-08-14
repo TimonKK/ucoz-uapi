@@ -9,19 +9,24 @@ var uAPI = new UAPI({
 
 
 
-uAPI.blog().get(
-    function(err, data) {
-        console.log('new delete', err, data);
-    }
-);
-
-
-uAPI.blog().delete(
+uAPI.blog().post(
     {
-        'id': '37'
+        'title': 'title!',
+        'description': 'ж п',
+        'message': 'ж п'
     },
     function(err, data) {
         console.log('new delete', err, data);
     }
 );
+
+
+//uAPI.blog().delete(
+//    {
+//        'id': '37'
+//    },
+//    function(err, data) {
+//        console.log('new delete', err, data);
+//    }
+//);
 

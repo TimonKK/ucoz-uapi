@@ -17,7 +17,16 @@ var uAPI = new UAPI({
     url               : 'yousiteurl'
 });
 
-uAPI.filesDirectory().get(
+uAPI.blog().get(
+    function(err, data) {
+        console.log(err, data);
+    }
+);
+
+uAPI.blog().post(
+    {
+        
+    },
     function(err, data) {
         console.log(err, data);
     }
