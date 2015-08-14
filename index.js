@@ -152,8 +152,7 @@ function mt_rand(min, max) {
 }
 
 function time() {
-	//return Math.floor(new Date().getTime() / 1000);
-	return Math.floor(1439501285039 / 1000);
+	return Math.floor(new Date().getTime() / 1000);
 }
 
 function http_build_query(formdata, numeric_prefix, arg_separator) {
@@ -280,27 +279,20 @@ Query.prototype.delete = function(params, cb) {
 
 
 Query.prototype.exec = function(moduleName, method, addParams, cb) {
-	var me = this;
-	//console.log('moduleName', moduleName);
-	//setup для работы с uApi
-	//var oauth_nonce = md5(new Date().getTime() + '' + mt_rand()),
-	var mt_rand_val = 560982359;//mt_rand(),
-		oauth_nonce = md5(1439501285039 + '' + mt_rand_val),
-		//oauth_nonce = md5(new Date().getTime() + '' + mt_rand_val),
-		timestamp   = time();
-	//console.log('mt_rand_val', mt_rand_val);
-	//console.log('oauth_nonce', oauth_nonce);
-	//console.log('timestamp', timestamp);
-	var parametrs = _.extend(
-		{
-			'oauth_consumer_key'     : me.context.consumerKey,
-			'oauth_nonce'            : oauth_nonce,
-			'oauth_signature_method' : sigMethod,
-			'oauth_timestamp'        : '' + timestamp,
-			'oauth_token'            : me.context.oauthToken,
-			'oauth_version'          : oauthVersion
-		}
-	);
+	var me          = this,
+		mt_rand_val = mt_rand();
+		oauth_nonce = md5(new Date().getTime() + '' + mt_rand_val),
+		timestamp   = time(),
+		parametrs   = _.extend(
+			{
+				'oauth_consumer_key'     : me.context.consumerKey,
+				'oauth_nonce'            : oauth_nonce,
+				'oauth_signature_method' : sigMethod,
+				'oauth_timestamp'        : '' + timestamp,
+				'oauth_token'            : me.context.oauthToken,
+				'oauth_version'          : oauthVersion
+			}
+		);
 	
 	try {
 		if ( ! moduleName) {
@@ -342,29 +334,15 @@ Query.prototype.exec = function(moduleName, method, addParams, cb) {
 		
 		parametrs = Object.keys(parametrs).reduce(function (obj, key) {
 			
-			// Это не я придумал, если не убирать эти символы, сигнатура не сходится
-			//obj[key] = parametrs[key].replace('@', '').replace('!', '');
-			//obj[key] = parametrs[key].replace('@', '');
+			// Это не я придумал, так написано в оригиальном модуле
 			obj[key] = parametrs[key].replace('@', '');
-			
-			//if (key == 'title') {
-			//	console.log('key', key, parametrs[key], escape(parametrs[key]).replace('@', ''));
-			//}
 			return obj;
 		}, {});
-		//console.log('request_url', request_url);
-		//console.log('parametrs', parametrs);
 		
-		//var basestring = querystring.stringify(parametrs).replace('+', '%20');
-		
-		console.log('============');
-		console.log(http_build_query(parametrs));
-		console.log('============');
-		var basestring = http_build_query(parametrs);
+		var basestring = http_build_query(parametrs).replace(/\+/g, '%20');
 		basestring = method + '&' + urlencode(request_url) + '&' + urlencode(basestring);
 		
 		var hash_key = me.context.consumerSecret + '&' + me.context.oauthTokenSecret;
-		
 		var oauth_signature = urlencode(
 			base64_encode(
 				getSha1(
@@ -373,25 +351,10 @@ Query.prototype.exec = function(moduleName, method, addParams, cb) {
 				)
 			).trim()
 		);
-		console.log('basestring', basestring);
-		console.log('hash_key', hash_key);
-		console.log('getSha1', getSha1(
-			basestring,
-			hash_key
-		));
-		console.log('base64_encode', base64_encode(
-			getSha1(
-				basestring,
-				hash_key
-			)
-		).trim());
-		console.log('oauth_signature', oauth_signature);
 		
-		//var parametrs_forurl = querystring.stringify(parametrs);
 		var parametrs_forurl = http_build_query(parametrs);
 		var url = request_url + '?oauth_signature=' + oauth_signature;
 		var url_for = request_url + '?' + parametrs_forurl + '&oauth_signature=' + oauth_signature;
-		
 	} catch(e) {
 		console.log('e', e.stack);
 	}
@@ -437,8 +400,6 @@ function UCozUAPI(params) {
 	me.url = me.url
 		.replace('http:\/\/', '')
 		.replace(/\/$/, '');
-	
-	//me.moduleName = '';
 	
 	// Список методов, возвращающий объект запроса к определенному модулю.
 	// У каждого модуля набор методов свой, если в API сервиса его нет, вернет ошибку вида

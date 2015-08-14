@@ -9,16 +9,15 @@ var uAPI = new UAPI({
 
 
 
-uAPI.blog().post(
-    {
-        'title': 'title!',
-        'description': 'ж п',
-        'message': 'ж п'
-    },
-    function(err, data) {
-        console.log('new delete', err, data);
-    }
-);
+//uAPI.blog().put(
+//    {
+//        'id': '82',
+//        'title': 'Ну охренеть теперь!!!!!!!'
+//    },
+//    function(err, data) {
+//        console.log('new delete', err, data);
+//    }
+//);
 
 
 //uAPI.blog().delete(
@@ -29,4 +28,13 @@ uAPI.blog().post(
 //        console.log('new delete', err, data);
 //    }
 //);
+
+uAPI.blog().delete(
+    {
+        id          : '83'
+    },
+    function(err, data) {
+        console.log(err, data);
+    }
+)
 
