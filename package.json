@@ -1,13 +1,12 @@
 {
   "name": "ucoz-uapi",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Node JS модуль для uAPI",
   "main": "index.js",
   "directories": {
     "test": "test"
   },
   "dependencies": {
-    "crypto": "^0.0.3",
     "lodash": "^3.10.1",
     "querystring": "^0.2.0",
     "request": "^2.60.0"
